@@ -104,6 +104,14 @@ try {
  console.log({closingElapsed:elapsed,transitionDuration:duration});
  assert.ok(elapsed+25>=duration,`close hid after ${elapsed}ms before ${duration}ms transition finished`);
  results.push('palette closing keeps the shell visible through its full configured transition');
+ const escapedBeforeFocus=await page.evaluate(()=>{
+   const root=document.querySelector('#margin-watch-top').shadowRoot;
+   root.querySelector('.top .search').dispatchEvent(new PointerEvent('pointerdown',{bubbles:true}));
+   document.body.dispatchEvent(new KeyboardEvent('keydown',{key:'Escape',bubbles:true,cancelable:true}));
+   return root.querySelector('.cp').dataset.open==='false';
+ });
+ assert.equal(escapedBeforeFocus,true,'Escape must close during the opening frame, before input focus');
+ await page.waitForFunction(()=>document.querySelector('#margin-watch-top').shadowRoot.querySelector('.cp').hidden);
  await page.locator('#margin-watch-top .top .search input').click();
  await page.waitForFunction(()=>document.querySelector('#margin-watch-top').shadowRoot.querySelector('.cp').classList.contains('cp-clipping'));
  await page.keyboard.press('Escape'); await page.waitForTimeout(40); await page.keyboard.press('Control+k');

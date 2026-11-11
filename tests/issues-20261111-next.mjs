@@ -21,7 +21,7 @@ try {
     if (path === '/x/v2/reply') { const pn = Number(url.searchParams.get('pn')); return { code: 0, data: { replies: Array.from({ length: 8 }, (_, i) => reply((pn - 1) * 8 + i + 1)), page: { count: 16, size: 8 } } }; }
     if (path === '/x/v2/reply/add') { posts++; await new Promise(resolve => releases.push(resolve)); return rejectPost ? { code: -400, message: '模拟拒绝发布' } : { code: 0, data: {} }; }
   });
-  await context.route('https://live.bilibili.com/3', route => route.fulfill({ contentType: 'text/html', body: '<!doctype html><html><body><div class="live-room-app"><div class="app-content" style="min-height:1600px"><main id="sections-vm"><div id="player-ctnr" style="width:800px;height:450px">原生播放器</div></main></div></div></body></html>' }));
+  await context.route('https://live.bilibili.com/3', route => route.fulfill({ contentType: 'text/html; charset=utf-8', body: '<!doctype html><html><body><div class="live-room-app"><div class="app-content" style="min-height:1600px"><main id="sections-vm"><div id="player-ctnr" style="width:800px;height:450px">原生播放器</div></main></div></div></body></html>' }));
   const worker = context.serviceWorkers()[0] || await context.waitForEvent('serviceworker');
   const seed = patch => worker.evaluate(async patch => { const saved = (await chrome.storage.local.get('margin:settings'))['margin:settings']; await chrome.storage.local.set({ 'margin:settings': { ...saved, intro: false, weather: false, footprint: false, bg: { mode: 'off' }, ...patch } }); }, patch);
   await seed({ theme: 'dark' });

@@ -312,6 +312,7 @@ export function createCommandPalette(commands: Command[]): Palette {
   loadSettings().then((st) => { cmdK = st.cmdK; animK = 100 / st.paletteSpeed; }).catch(() => {});
   onSettingsChange((n, p) => { if (n.searchStyle !== p.searchStyle) close(); cmdK = n.cmdK; animK = 100 / n.paletteSpeed; });
   addEventListener('keydown', (e) => {
+    if (e.key === 'Escape' && el.dataset.open === 'true') { e.preventDefault(); close(); return; }
     if (cmdK && (e.ctrlKey || e.metaKey) && !e.altKey && e.key.toLowerCase() === 'k') { e.preventDefault(); el.dataset.open === 'true' ? close() : open(); return; }
     if (e.key !== '/' || e.ctrlKey || e.metaKey || e.altKey || el.dataset.open === 'true') return;
     const typing = e.composedPath().some((n) => n instanceof HTMLInputElement || n instanceof HTMLTextAreaElement || (n instanceof HTMLElement && n.isContentEditable));
