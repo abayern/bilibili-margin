@@ -16,6 +16,7 @@ import { FilterRuntime } from '../filter-runtime';
 import { uiReducedMotion as reducedMotion } from '../motion';
 import { toast } from './controls';
 import { ThemeWriter } from './theme-writer';
+import { createCommandPalette } from './command-palette';
 import css from '../styles/index';
 import pagesCss from '../takeover.css?inline';
 
@@ -47,12 +48,18 @@ export class PageShell {
     const fav = createFavorites((g) => attachPreview(g, () => this.settings.hoverPreview), () => this.settings.favDirect, this.filter);
     const later = createLaterDrawer(() => this.app, this.filter);
     const hist = createHistoryDrawer();
+    const palette = createCommandPalette([
+      { id: 'page-settings', title: '设置', cat: '操作', icon: ICONS.gear, run: () => this.panel.sheet.open() },
+      { id: 'page-favorites', title: '收藏夹', cat: '跳转', icon: ICONS.fav, run: () => fav.open() },
+      { id: 'page-later', title: '稍后再看', cat: '跳转', icon: ICONS.later, run: () => later.open() },
+    ]);
     panels.fav = fav;
     panels.later = later;
     panels.hist = hist;
     this.head = createHeader({
       onTheme: () => this.toggleTheme(),
       onSettings: () => this.panel.sheet.open(),
+      onSearch: (q, origin) => palette.open(q, origin),
       msgRemind: () => this.settings.msgRemind,
       filter: this.filter,
       tabs: [
@@ -68,7 +75,7 @@ export class PageShell {
     this.app = h('div', { class: 'app','data-glass':settings.glass },
       this.bg.el, this.head.el, this.main,
       h('footer', { class: 'foot tk-foot' }, exit, h('span', {}, '映间 MARGIN · 非 B 站官方')),
-      this.panel.sheet.el, fav.el, later.el, hist.el,
+      this.panel.sheet.el, fav.el, later.el, hist.el, palette.el,
     );
     // 标记抽屉状态；大面板使用实底，可见背景保持动态。
     this.app.addEventListener('margin:sheet', () => { const on = !!this.app.querySelector('.sheet-layer[data-open="true"]'); this.app.classList.toggle('sheeted', on); });

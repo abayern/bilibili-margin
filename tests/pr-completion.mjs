@@ -85,6 +85,34 @@ try {
    await page.waitForFunction(()=>document.querySelector('#margin-watch-top').shadowRoot.querySelector('.cp').hidden);
  }
  results.push('palette morph matches search and panel radii at 0/100/150');
+ await seed({radius:100,searchStyle:'new',paletteSpeed:50,theme:'dark'});
+ await page.goto('https://www.bilibili.com/video/BV1mdxN68E7F/');
+ await page.locator('#margin-watch-top .top .search input').click();
+ await page.waitForFunction(()=>{const root=document.querySelector('#margin-watch-top').shadowRoot;return root.querySelector('.cp').dataset.open==='true'&&!root.querySelector('.cp').classList.contains('cp-clipping');});
+ await page.evaluate(()=>{
+   const root=document.querySelector('#margin-watch-top').shadowRoot, cp=root.querySelector('.cp');
+   window.closeTiming={};
+   document.addEventListener('keydown',event=>{if(event.key==='Escape')window.closeTiming.start=performance.now();},{capture:true,once:true});
+   const observer=new MutationObserver(()=>{if(cp.hidden){window.closeTiming.end=performance.now();observer.disconnect();}});
+   observer.observe(cp,{attributes:true,attributeFilter:['hidden']});
+ });
+ await page.keyboard.press('Escape');
+ const duration=await page.locator('#margin-watch-top .cp-shell').evaluate(el=>Math.max(...getComputedStyle(el).transitionDuration.split(',').map(value=>parseFloat(value)*1000)));
+ assert.ok(duration>0,'closing must have a configured transition');
+ await page.waitForFunction(()=>document.querySelector('#margin-watch-top').shadowRoot.querySelector('.cp').hidden);
+ const elapsed=await page.evaluate(()=>window.closeTiming.end-window.closeTiming.start);
+ console.log({closingElapsed:elapsed,transitionDuration:duration});
+ assert.ok(elapsed+25>=duration,`close hid after ${elapsed}ms before ${duration}ms transition finished`);
+ results.push('palette closing keeps the shell visible through its full configured transition');
+ await page.locator('#margin-watch-top .top .search input').click();
+ await page.waitForFunction(()=>document.querySelector('#margin-watch-top').shadowRoot.querySelector('.cp').classList.contains('cp-clipping'));
+ await page.keyboard.press('Escape'); await page.waitForTimeout(40); await page.keyboard.press('Control+k');
+ await page.waitForTimeout(1100);
+ assert.equal(await page.locator('#margin-watch-top .cp').evaluate(el=>!el.hidden&&el.dataset.open==='true'),true);
+ await page.keyboard.press('Escape');
+ await page.waitForFunction(()=>document.querySelector('#margin-watch-top').shadowRoot.querySelector('.cp').hidden);
+ assert.notEqual(await page.locator('#margin-watch-top .top .search').evaluate(el=>getComputedStyle(el).visibility),'hidden');
+ results.push('rapid close and reopen cancels stale hide timers and restores the original search');
  await page.goto('https://www.bilibili.com/video/BV1mdxN68E7F/'); await page.locator('#margin-watch-top').waitFor();
  await page.evaluate(()=>{
    const comments=document.createElement('bili-comments'); const root=comments.attachShadow({mode:'open'});

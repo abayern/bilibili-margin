@@ -77,9 +77,13 @@ function metaRow(v: Video, opts: CardOpts): HTMLElement {
     const views = fmtCount(v.views);
     parts.push(h('span', { class: 'stat', title: `${views} 播放`, 'aria-label': `${views} 播放` }, icon(ICONS.play), views));
   }
-  // 弹幕数为 0 也要显示（详情页同样带 0），只有接口没给这个值时才省略
-  if (Number.isFinite(v.danmaku) && !off('danmaku')) {
-    const dm = fmtCount(v.danmaku);
+  // 部分接口给数字字符串；明确的 0 保留，无效或缺失值不伪造为 0。
+  const rawDanmaku: unknown = v.danmaku;
+  const count = typeof rawDanmaku === 'number' ? rawDanmaku
+    : typeof rawDanmaku === 'string' && /^\d+(?:\.\d+)?$/.test(rawDanmaku.trim()) ? Number(rawDanmaku) : NaN;
+  const formatted = typeof rawDanmaku === 'string' && /^\d+(?:\.\d+)?[万亿]$/.test(rawDanmaku.trim()) ? rawDanmaku.trim() : null;
+  const dm = Number.isFinite(count) && count >= 0 ? fmtCount(count) : formatted;
+  if (dm !== null && !off('danmaku')) {
     parts.push(h('span', { class: 'stat', title: `${dm} 弹幕`, 'aria-label': `${dm} 弹幕` }, icon(ICONS.comment), dm));
   }
   const meta = h('div', { class: 'meta' });

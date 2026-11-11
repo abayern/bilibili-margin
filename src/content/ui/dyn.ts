@@ -287,17 +287,19 @@ function actions(d: Dyn): HTMLElement {
     const list = h('div', { class: 'dy-rlist' });
     const ta = h('textarea', { class: 'dy-in', rows: '1', maxlength: '1000', placeholder: '发一条友善的评论', 'aria-label': '发表评论' }) as HTMLTextAreaElement;
     const send = h('button', { type: 'button', class: 'dy-send', disabled: '' }, '发布') as HTMLButtonElement;
+    let posting = false;
     const post = async () => {
       const msg = ta.value.trim();
-      if (!msg || send.disabled || !d.cmtType || !d.cmtOid) return;
-      send.setAttribute('disabled', '');
+      if (!msg || posting || send.disabled || !d.cmtType || !d.cmtOid) return;
+      posting = true; send.disabled = true; send.setAttribute('aria-busy', 'true'); send.dataset.marginSending = '';
       try {
         await dynReply(d.cmtType!, d.cmtOid!, msg);
-        ta.value = ''; d.stat.comment++; cmt.textContent = `评论 ${fmtCount(d.stat.comment)}`;
+        if (ta.value.trim() === msg) ta.value = '';
+        d.stat.comment++; cmt.textContent = `评论 ${fmtCount(d.stat.comment)}`;
         status.textContent = '';
         list.prepend(h('div', { class: 'dy-r mine' }, h('div', { class: 'dy-r-b' }, h('b', {}, '我'), h('p', {}, msg))));
       } catch (err) { say(`发布失败：${(err as Error).message}`); }
-      send.removeAttribute('disabled');
+      finally { posting = false; send.disabled = false; send.removeAttribute('aria-busy'); delete send.dataset.marginSending; }
     };
     send.addEventListener('click', post);
     ta.addEventListener('keydown', (ev) => { if (ev.key === 'Enter' && !ev.shiftKey && !ev.isComposing && ev.keyCode !== 229) { ev.preventDefault(); post(); } });
@@ -318,7 +320,7 @@ function actions(d: Dyn): HTMLElement {
         const target = await dynCommentTarget(d);
         if (!target) throw new Error('暂时无法读取此动态的评论，请稍后重试');
         if (gen !== commentGen || !cmtBox?.isConnected) return;
-        send.disabled = false;
+        send.disabled = posting;
         const result = await dynReplies(target.type, target.oid, 8, pn + 1);
         if (gen !== commentGen || !cmtBox?.isConnected) return;
         pn++;

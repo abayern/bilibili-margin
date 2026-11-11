@@ -13,6 +13,10 @@ const CSS = `
   .m-send-flight { display: inline-flex; }
   .m-send-flight svg { display: block; width: 20px; height: 20px; transition: transform .3s ease; }
   .m-send-label { transition: transform .3s ease; }
+  .margin-send-button[data-margin-sending] .m-send-flight { animation: none !important; }
+  .margin-send-button[data-margin-sending] .m-send-flight svg, .margin-send-button[data-margin-sending] .m-send-label { transform: none !important; }
+  .margin-send-button[data-margin-sending] .m-send-label { font-size: 0; }
+  .margin-send-button[data-margin-sending] .m-send-label::after { content: '发送中…'; font-size: 14px; }
   :is(html.margin-skin, :host-context(html.margin-skin), .app) .margin-send-button:focus-visible { outline: 2px solid var(--m-accent, #00aeec) !important; outline-offset: 3px; }
   @media (prefers-reduced-motion: no-preference) {
     .margin-send-button:is(:hover, :focus-visible):not(:disabled):not([aria-disabled="true"]) .m-send-flight { animation: m-send-fly .6s ease-in-out infinite alternate; }

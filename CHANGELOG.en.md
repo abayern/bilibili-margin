@@ -4,6 +4,16 @@
 
 ## Unreleased
 
+## v0.6.41 · 2026-11-11
+
+- Restore card danmaku counts returned as numeric strings. Accept numeric and formatted counts, preserve explicit zero and the user's visibility setting, and omit invalid values.
+- Keep dynamic-comment submission locked independently of reply pagination and show immediate sending feedback. Preserve rejected drafts and edits made while sending (#165).
+- Guard repeated clicks and submit keys in the same native comment editor while its fetch/XHR publication request is pending. Retain the native request, response and error behavior without automatic POST retries or artificial delays.
+- Merge PR #166 to prevent overlapping search placeholders and PR #167 to match morph corners to actual settings and synchronize shortcut hints.
+- Reuse the existing search palette in dynamic and other takeover-page headers, honoring both classic and expanding styles (#146).
+- Let live-room content backgrounds become transparent only when a custom background is active; retain the original canvas when off and keep player/rank surfaces opaque (#95).
+- Continue deferring toolbar reordering and dynamic layout restructuring. No new dependency or permission.
+
 ## v0.6.40 · 2026-11-11
 
 - Restore access to the signed-in owner's private favorite folders without granting access to other users' private content (#161).
