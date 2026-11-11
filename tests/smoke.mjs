@@ -28,6 +28,16 @@ const PAGES = [
     const dates = [...r.querySelectorAll('.grid .card .pubtime')].map((e) => e.textContent.trim())
       .filter((t) => t.length === 19 && t[4] === '-' && t[10] === ' ' && t[13] === ':' && t[16] === ':');
     if (dates.length < 4) miss.push('card publish time missing');
+    // 信息行：作者/播放/弹幕用图标 + 数字，不再带「播放 / 弹幕」字样
+    const stats = [...r.querySelectorAll('.grid .card .meta > .stat')];
+    if (stats.length < 4) miss.push('.meta > .stat');
+    if (!stats.every((s) => s.querySelector('svg') && /^[0-9]/.test(s.textContent.trim()))) miss.push('.stat svg + number');
+    if (stats.some((s) => /播放|弹幕/.test(s.textContent))) miss.push('.stat still has unit text');
+    if (!r.querySelector('.grid .card .meta > .author > svg')) miss.push('.author > svg');
+    // 弹幕为 0 的视频也要有弹幕图标 + 0，不能整段省略（mocks 里那条「还没人发弹幕的新投稿」给的就是 0）
+    const cards = [...r.querySelectorAll('.grid .card:not(.sk)')];
+    if (!cards.every((c) => c.querySelectorAll('.meta > .stat').length === 2)) miss.push('card with missing play/danmaku stat');
+    if (!stats.some((s) => s.textContent.trim() === '0' && s.getAttribute('aria-label') === '0 弹幕')) miss.push('zero-danmaku stat');
     return miss; })()`],
   ['watch', 'https://www.bilibili.com/video/BV1mdxN68E7F/', `(() => { const miss = [];
     if (!document.documentElement.classList.contains('margin-watch')) miss.push('html.margin-watch');

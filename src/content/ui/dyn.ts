@@ -182,18 +182,20 @@ function kindLabel(d: Dyn): string {
   return 'NOTE';
 }
 
-function replyRow(r: Reply): HTMLElement {
+function replyRow(r: Reply, ownerMid: number): HTMLElement {
   return h('div', { class: 'dy-r' },
     h('a', { class: 'dy-r-face', href: `https://space.bilibili.com/${r.mid}`, ...ext }, h('img', { src: r.face ? `${r.face}@64w_64h_1c.webp` : '', alt: '', loading: 'lazy', referrerpolicy: 'no-referrer' })),
     h('div', { class: 'dy-r-b' },
       h('a', { class: 'dy-r-name', href: `https://space.bilibili.com/${r.mid}`, ...ext }, r.name),
+      ownerMid > 0 && r.mid === ownerMid ? h('span', { class: 'dy-r-tag dy-r-up', 'aria-label': '动态作者' }, 'UP') : null,
+      r.top ? h('span', { class: 'dy-r-tag dy-r-top' }, '置顶') : null,
       h('p', {}, ...richText(r.text, r.richText)),
       h('span', { class: 'dy-r-meta' }, [fmtAgo(r.ts), r.location, r.like ? `赞 ${fmtCount(r.like)}` : ''].filter(Boolean).join(' · '))));
 }
 
 /** 21st 嵌套回复的缩进与收起交互；B 站楼中楼按根评论分页，首次展开才请求。 */
-function replyThread(r: Reply, type: number, oid: string, active: () => boolean): HTMLElement {
-  const row = replyRow(r);
+function replyThread(r: Reply, type: number, oid: string, active: () => boolean, ownerMid: number): HTMLElement {
+  const row = replyRow(r, ownerMid);
   if (!r.rcount) return row;
   const toggle = h('button', { type: 'button', class: 'dy-replies-toggle', 'aria-expanded': 'false' }, `展开 ${r.rcount} 条回复`);
   const status = h('div', { class: 'dy-rempty', role: 'status' });
@@ -210,7 +212,7 @@ function replyThread(r: Reply, type: number, oid: string, active: () => boolean)
       page++;
       for (const reply of result.list) {
         if (seen.has(reply.rpid)) continue;
-        seen.add(reply.rpid); list.insertBefore(replyRow(reply), status);
+        seen.add(reply.rpid); list.insertBefore(replyRow(reply, ownerMid), status);
       }
       status.textContent = seen.size ? '' : '暂无回复';
       more.textContent = '加载更多回复';
@@ -321,7 +323,7 @@ function actions(d: Dyn): HTMLElement {
         if (gen !== commentGen || !cmtBox?.isConnected) return;
         pn++;
         for (const reply of result.list) if (!seen.has(reply.rpid)) {
-          seen.add(reply.rpid); list.append(replyThread(reply, target.type, target.oid, () => gen === commentGen && !!cmtBox?.isConnected));
+          seen.add(reply.rpid); list.append(replyThread(reply, target.type, target.oid, () => gen === commentGen && !!cmtBox?.isConnected, d.mid));
         }
         status.textContent = seen.size ? '' : '还没有评论'; more.hidden = !result.more; more.textContent = '加载更多评论';
       } catch (err) {

@@ -132,6 +132,17 @@ export async function followFeed(type: FeedType, offset: string, hostMid = 0): P
 
 export interface Up { mid: number; name: string; face: string; fresh: boolean }
 export interface LiveUp { mid: number; name: string; face: string; title: string; url: string }
+/** The native followed-live list is read only after the user asks for more. */
+export async function followingLive(): Promise<LiveUp[]> {
+  const response = await fetch('https://api.live.bilibili.com/xlive/web-ucenter/v1/xfetter/GetWebList?hit_ab=true', { credentials: 'include', signal: AbortSignal.timeout(8000) });
+  if (!response.ok) throw new Error('直播列表暂时不可用');
+  const body = await response.json();
+  if (body.code !== 0) throw new Error(body.message || body.msg || '直播列表暂时不可用');
+  return (body.data?.rooms ?? body.data?.list ?? []).flatMap((u: any) => {
+    const room = Number(u.room_id ?? u.roomid);
+    return Number.isSafeInteger(room) && room > 0 ? [{ mid: Number(u.uid ?? u.mid) || 0, name: String(u.uname || ''), face: https(u.face), title: String(u.title || ''), url: `https://live.bilibili.com/${room}` }] : [];
+  });
+}
 /** 顶部「最常访问」头像条 + 正在直播 */
 export async function portal(): Promise<{ ups: Up[]; live: LiveUp[]; liveCount: number }> {
   const d = await getJSON<any>('/x/polymer/web-dynamic/v1/portal');
@@ -177,7 +188,7 @@ export async function dynCommentTarget(d: Dyn): Promise<{ type: number; oid: str
   return { type: item.cmtType, oid: item.cmtOid };
 }
 
-export interface Reply { rpid: string; name: string; face: string; mid: number; text: string; richText?: DynText[]; like: number; ts: number; rcount: number; location?: string }
+export interface Reply { rpid: string; name: string; face: string; mid: number; text: string; richText?: DynText[]; like: number; ts: number; rcount: number; location?: string; top?: boolean }
 function toReply(r: any): Reply {
   return {
     rpid: String(r.rpid_str ?? r.rpid), name: r.member?.uname ?? '', face: https(r.member?.avatar), mid: Number(r.mid ?? r.member?.mid) || 0,
@@ -195,8 +206,13 @@ export async function dynReplies(type: number, oid: string, ps = 8, pn = 1): Pro
   const d = await getJSON<any>('/x/v2/reply', { type, oid, sort: 1, ps, pn });
   const seen = new Set<string>();
   const rows = d.replies ?? [];
-  const list = [...(pn === 1 ? [...(d.top_replies ?? []), ...(d.upper?.top ? [d.upper.top] : [])] : []), ...rows]
-    .map(toReply).filter((r) => !seen.has(r.rpid) && seen.add(r.rpid));
+  const pinned: any[] = pn === 1 ? [...(d.top_replies ?? []), ...(d.upper?.top ? [d.upper.top] : [])] : [];
+  const pinnedIds = new Set(pinned.map(r => String(r.rpid_str ?? r.rpid)));
+  const list = [...pinned, ...rows].map(raw => {
+    const reply = toReply(raw);
+    if (pinnedIds.has(reply.rpid)) reply.top = true;
+    return reply;
+  }).filter((r) => !seen.has(r.rpid) && seen.add(r.rpid));
   const more = rows.length > 0 && (typeof d.page?.count === 'number' ? pn * (d.page.size || ps) < d.page.count : rows.length >= ps);
   return { list, count: d.page?.acount ?? d.page?.count ?? list.length, more };
 }

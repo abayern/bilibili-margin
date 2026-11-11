@@ -3,7 +3,7 @@ import type { Settings } from '../../shared/settings';
 import { nav } from '../api/http';
 import { followings } from '../api/dyn';
 import { account, accountStat } from '../api/account';
-import { followFeed, portal, searchFollowing, type FeedType, type LiveUp, type Up } from '../api/dyn';
+import { followFeed, followingLive, portal, searchFollowing, type FeedType, type LiveUp, type Up } from '../api/dyn';
 import { hotSearch } from '../api/search';
 import { dynCard } from './dyn';
 import { compileDynFilter } from '../filter';
@@ -167,11 +167,25 @@ export class FeedApp {
 
   private renderLive(left: HTMLElement, live: LiveUp[], count: number): void {
     if (!live.length) return;
+    const row = (u: LiveUp) => h('a', { class: 'fd-live-row', href: u.url, ...ext },
+      h('span', { class: 'fd-live-face' }, face(u.face, '', 80)),
+      h('span', { class: 'fd-live-b' }, h('b', {}, u.name), h('span', {}, u.title)));
+    let entries = live, shown = Math.min(8, live.length), complete = count <= live.length, busy = false;
+    const list = h('div', {}, ...entries.slice(0, shown).map(row));
+    const more = h('button', { class: 'ghost small fd-live-more', type: 'button', hidden: shown >= entries.length && complete }, '加载更多') as HTMLButtonElement;
+    more.addEventListener('click', async () => {
+      if (busy) return;
+      busy = true; more.disabled = true; more.textContent = '加载中…';
+      try {
+        if (!complete) { const extra = await followingLive(); const seen = new Set(entries.map(u => u.url)); entries = [...entries]; for (const u of extra) if (!seen.has(u.url)) { seen.add(u.url); entries.push(u); } complete = true; }
+        const next = entries.slice(shown, shown + 8); shown += next.length; list.append(...next.map(row));
+        more.hidden = shown >= entries.length; more.textContent = '加载更多';
+      } catch { more.textContent = '加载失败，重试'; }
+      finally { busy = false; more.disabled = false; }
+    });
     left.append(h('section', { class: 'fd-card fd-live' },
       h('div', { class: 'fd-card-h' }, h('span', {}, '正在直播'), h('b', {}, String(count))),
-      ...live.map((u) => h('a', { class: 'fd-live-row', href: u.url, ...ext },
-        h('span', { class: 'fd-live-face' }, face(u.face, '', 80)),
-        h('span', { class: 'fd-live-b' }, h('b', {}, u.name), h('span', {}, u.title))))));
+      list, more));
   }
 
   private renderUps(ups: Up[]): void {

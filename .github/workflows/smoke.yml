@@ -45,6 +45,10 @@ jobs:
         run: node tests/space-content.mjs
         env:
           SMOKE_OUT: smoke-artifacts/space-content
+      - name: Private favorites, dynamic badges and manual live expansion
+        run: node tests/issues-20261111.mjs
+        env:
+          SMOKE_OUT: smoke-artifacts/issues-20261111
       - name: Native charging-video filter, sorting and search
         run: node tests/space-charging.mjs
       - name: Application window navigation

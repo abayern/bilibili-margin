@@ -3,13 +3,14 @@ import type { Video } from './feed';
 
 export interface Folder { id: number; title: string; count: number; cover: string; mid: number; kind?: 'collected' | 'season'; /** 默认收藏夹不能删除 */ isDefault: boolean; isPrivate: boolean }
 
-/** 空间页只列出该 UP 自己创建的公开收藏夹。 */
+/** 其他人的空间只列公开收藏夹；登录者自己的空间也保留私密夹。 */
 export async function publicFolders(mid: number, page: number): Promise<{ list: Folder[]; more: boolean }> {
   const data = await getJSON<{ list?: { id: number; title: string; media_count: number; cover?: string; attr: number }[]; count?: number; has_more?: boolean } | null>(
     '/x/v3/fav/folder/created/list', { up_mid: mid, pn: page, ps: 20 });
+  const own = data?.list?.some(f => f.attr & 1) ? await nav().then(n => n.isLogin && n.mid === mid, () => false) : false;
   return {
-    list: (data?.list || []).filter(f => Number.isInteger(f.attr) && (f.attr & 1) === 0).map(f => ({
-      id: f.id, title: f.title, count: f.media_count, cover: https(f.cover), mid, isDefault: (f.attr & 2) === 0, isPrivate: false,
+    list: (data?.list || []).filter(f => Number.isInteger(f.attr) && ((f.attr & 1) === 0 || own)).map(f => ({
+      id: f.id, title: f.title, count: f.media_count, cover: https(f.cover), mid, isDefault: (f.attr & 2) === 0, isPrivate: (f.attr & 1) === 1,
     })),
     more: data?.has_more ?? page * 20 < (data?.count || 0),
   };
@@ -17,8 +18,12 @@ export async function publicFolders(mid: number, page: number): Promise<{ list: 
 
 export async function publicFolder(mid: number, id: number): Promise<Folder> {
   const data = await getJSON<{ id: number; mid: number; title: string; media_count: number; cover?: string; attr: number } | null>('/x/v3/fav/folder/info', { media_id: id });
-  if (!data || data.mid !== mid || !Number.isInteger(data.attr) || (data.attr & 1)) throw new Error('收藏夹未公开或不属于当前空间');
-  return { id: data.id, mid, title: data.title, count: data.media_count, cover: https(data.cover), isDefault: (data.attr & 2) === 0, isPrivate: false };
+  if (!data || data.mid !== mid || !Number.isInteger(data.attr)) throw new Error('收藏夹不可用或不属于当前空间');
+  if (data.attr & 1) {
+    const own = await nav().then(n => n.isLogin && n.mid === mid, () => false);
+    if (!own) throw new Error('收藏夹未公开');
+  }
+  return { id: data.id, mid, title: data.title, count: data.media_count, cover: https(data.cover), isDefault: (data.attr & 2) === 0, isPrivate: (data.attr & 1) === 1 };
 }
 
 /* eslint-disable @typescript-eslint/no-explicit-any */

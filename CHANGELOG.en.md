@@ -4,6 +4,14 @@
 
 ## Unreleased
 
+## v0.6.40 · 2026-11-11
+
+- Restore access to the signed-in owner's private favorite folders without granting access to other users' private content (#161).
+- Add the existing IP, forecast and place-search endpoints to CSP connect-src for Firefox. Retain privacy controls without adding permissions or providers (#158).
+- Preserve pinned-comment metadata and show the dynamic author's UP badge by UID, including nested replies. Deduplicate pinned rows (#157).
+- Add a native follow-series entry to profile pages (#159). Keep eight initial live previews and load more only on request, with deduplication and retries (#160).
+- Integrate the approved PR #162 preview: author, view and danmaku metadata use icons with text or numbers, retaining accessible labels and followed badges. Explicit zero danmaku counts remain visible.
+
 ## v0.6.39 · 2026-11-11
 
 - Confine dynamic comment/repost displacement to an 8px rim and reduce its scale from 200 to 6. Keep the center undistorted to remove large gray waves and stretched edges on tall cards.

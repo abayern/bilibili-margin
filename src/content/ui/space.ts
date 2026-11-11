@@ -92,7 +92,7 @@ export class SpaceApp {
       b.dataset.tab = id;
       return b;
     };
-    tabs.append(mk('video', '视频'), mk('collections', '合集和系列'), mk('article', '图文'), mk('audio', '音频'), mk('favorites', '公开收藏夹'), mk('dynamic', '动态'));
+    tabs.append(mk('video', '视频'), mk('collections', '合集和系列'), mk('article', '图文'), mk('audio', '音频'), mk('favorites', '收藏夹'), mk('dynamic', '动态'));
     const input = h('input', { type: 'search', class: 'sp-q-in', placeholder: '搜索 TA 的视频', 'aria-label': '搜索 TA 的视频', autocomplete: 'off' }) as HTMLInputElement;
     let qt = 0;
     const apply = () => { const v = input.value.trim(); if (v === this.q) return; this.q = v; if (this.tab === 'video' || this.collection) this.reload(); };
@@ -303,7 +303,8 @@ export class SpaceApp {
             h('div', { class: 'eyebrow' }, h('span', { class: 'en' }, 'Space'), h('span', { class: 'caps' }, `UID ${i.mid}`), h('span', { class: 'no' }, `LV${i.level}`), i.vip ? h('span', { class: 'sp-vip' }, i.vip) : null)),
           h('h1', {}, i.name),
           i.official ? h('p', { class: 'sp-official' }, i.official) : null,
-          i.sign ? h('p', { class: 'sp-sign' }, i.sign) : null),
+          i.sign ? h('p', { class: 'sp-sign' }, i.sign) : null,
+          h('a', { class: 'ghost small sp-native-following', href: `https://space.bilibili.com/${i.mid}/bangumi?margin=off`, target: '_blank', rel: 'noopener', 'aria-label': '追番／追剧（B 站原版）' }, '追番／追剧', icon(ICONS.arrow))),
         h('div', { class: 'sp-side' },
           this.stats(null),
           acts)),
@@ -399,7 +400,7 @@ export class SpaceApp {
     this.collectionHead.replaceChildren(
       h('button', { class: 'ghost small', type: 'button', onclick: () => {
         this.folder = null; history.replaceState(null, '', `/${this.mid}/favlist`); this.reload();
-      } }, icon(ICONS.back), '公开收藏夹'), h('h2', {}, folder.title));
+      } }, icon(ICONS.back), '收藏夹'), h('h2', {}, folder.title));
     this.reload();
   }
 
@@ -408,7 +409,7 @@ export class SpaceApp {
     return h('article', { class: 'card sp-collection' },
       h('button', { class: 'cover', type: 'button', 'aria-label': `打开${folder.title}`, onclick: open },
         folder.cover ? h('img', { src: folder.cover, alt: '', loading: 'lazy', referrerpolicy: 'no-referrer' }) : icon(ICONS.folder),
-        h('span', { class: 'dur' }, `${folder.count} 个内容`)),
+        h('span', { class: 'dur' }, `${folder.count} 个内容${folder.isPrivate ? ' · 私密' : ''}`)),
       h('button', { class: 'title', type: 'button', onclick: open }, folder.title));
   }
 

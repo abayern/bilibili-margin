@@ -529,6 +529,8 @@
 .hl-foot { display: flex; justify-content: flex-end; margin-top: 8px; }
 .dp-end { margin: 0; padding: 12px 0 4px; text-align: center; font-size: 12px; color: var(--muted); }
 .dp-tail { display: block; height: 1px; }
+.dp-more { display: block; width: 100%; padding: 10px; color: var(--accent-text); font-size: 12px; text-align: center; }
+.dp-more:disabled { opacity: .5; cursor: wait; }
 
 /* 设置抽屉（v0.47.4）：grid 0fr→1fr 展开，不读布局 */
 .sd { border-radius: 12px; margin: 4px 0; background: color-mix(in srgb, var(--ink) 3%, transparent); box-shadow: var(--ring); }
