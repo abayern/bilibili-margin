@@ -616,7 +616,8 @@ try {
       if (u.includes('geocoding-api.open-meteo.com')) return cities(u);
       if (u.includes('api.open-meteo.com')) forecasts.push(new URL(u).searchParams.get('latitude'));
     };
-    await seed({ weather: true, privacyExternal: true, footprint: true, reduceMotion: true });
+    // Prepare legacy storage before mounting weather; an active card can repopulate a cleared location.
+    await seed({ weather: false, privacyExternal: true, footprint: true, reduceMotion: true });
     await page.goto('https://www.bilibili.com/');
     // Migrate the explicit old selection without silently changing its coordinates.
     await page.evaluate(() => {
@@ -624,6 +625,7 @@ try {
       localStorage.removeItem('margin:weather-cache');
     });
     await sw.evaluate(() => chrome.storage.local.remove('margin:weather-location-v2'));
+    await seed({ weather: true });
     await page.reload();
     const city = page.locator('.wx-city');
     await city.waitFor();
@@ -666,6 +668,7 @@ try {
     await input.fill('珠海'); await input.press('Enter');
     await options.filter({ hasText: '广东省' }).first().waitFor({ timeout: 2500 });
     await options.filter({ hasText: '广东省' }).filter({ has: page.getByText('珠海市', { exact: true }) }).click();
+    await options.first().waitFor({ state: 'hidden' });
     assert.equal(await sw.evaluate(async () => (await chrome.storage.local.get('margin:weather-location-v2'))['margin:weather-location-v2'].loc.lat), 22.2716);
     // Clearing, editing during debounce, and returning to automatic location invalidate in-flight searches.
     for (const action of ['clear', 'edit', 'auto']) {
