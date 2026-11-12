@@ -182,7 +182,7 @@ function kindLabel(d: Dyn): string {
   return 'NOTE';
 }
 
-function replyRow(r: Reply, ownerMid: number): HTMLElement {
+function replyRow(r: Reply, ownerMid: number, onReply?: () => void): HTMLElement {
   return h('div', { class: 'dy-r' },
     h('a', { class: 'dy-r-face', href: `https://space.bilibili.com/${r.mid}`, ...ext }, h('img', { src: r.face ? `${r.face}@64w_64h_1c.webp` : '', alt: '', loading: 'lazy', referrerpolicy: 'no-referrer' })),
     h('div', { class: 'dy-r-b' },
@@ -190,14 +190,17 @@ function replyRow(r: Reply, ownerMid: number): HTMLElement {
       ownerMid > 0 && r.mid === ownerMid ? h('span', { class: 'dy-r-tag dy-r-up', 'aria-label': '动态作者' }, 'UP') : null,
       r.top ? h('span', { class: 'dy-r-tag dy-r-top' }, '置顶') : null,
       h('p', {}, ...richText(r.text, r.richText)),
-      h('span', { class: 'dy-r-meta' }, [fmtAgo(r.ts), r.location, r.like ? `赞 ${fmtCount(r.like)}` : ''].filter(Boolean).join(' · '))));
+      h('span', { class: 'dy-r-meta' }, [fmtAgo(r.ts), r.location, r.like ? `赞 ${fmtCount(r.like)}` : ''].filter(Boolean).join(' · '),
+        onReply ? h('button', { type: 'button', class: 'dy-r-reply', 'aria-label': `回复 ${r.name}`, onclick: onReply }, '回复') : null)));
 }
 
 /** 21st 嵌套回复的缩进与收起交互；B 站楼中楼按根评论分页，首次展开才请求。 */
-function replyThread(r: Reply, type: number, oid: string, active: () => boolean, ownerMid: number): HTMLElement {
-  const row = replyRow(r, ownerMid);
-  if (!r.rcount) return row;
+function replyThread(r: Reply, type: number, oid: string, active: () => boolean, ownerMid: number,
+  onReply: (target: Reply, root: string, append: (reply: Reply | null, message: string, name: string) => void) => void): HTMLElement {
+  const choose = (target: Reply) => onReply(target, r.rpid, append);
+  const row = replyRow(r, ownerMid, () => choose(r));
   const toggle = h('button', { type: 'button', class: 'dy-replies-toggle', 'aria-expanded': 'false' }, `展开 ${r.rcount} 条回复`);
+  toggle.hidden = !r.rcount;
   const status = h('div', { class: 'dy-rempty', role: 'status' });
   const more = h('button', { type: 'button', class: 'dy-replies-more' }, '加载更多回复') as HTMLButtonElement;
   const list = h('div', { class: 'dy-sublist', hidden: '' }, status, more);
@@ -212,7 +215,7 @@ function replyThread(r: Reply, type: number, oid: string, active: () => boolean,
       page++;
       for (const reply of result.list) {
         if (seen.has(reply.rpid)) continue;
-        seen.add(reply.rpid); list.insertBefore(replyRow(reply, ownerMid), status);
+        seen.add(reply.rpid); list.insertBefore(replyRow(reply, ownerMid, () => choose(reply)), status);
       }
       status.textContent = seen.size ? '' : '暂无回复';
       more.textContent = '加载更多回复';
@@ -227,6 +230,18 @@ function replyThread(r: Reply, type: number, oid: string, active: () => boolean,
     } finally { busy = false; more.disabled = false; }
   };
   more.addEventListener('click', () => void load());
+  const append = (reply: Reply | null, message: string, name: string) => {
+    if (!active()) return;
+    if (!page && r.rcount) void load();
+    if (!reply || !seen.has(reply.rpid)) {
+      if (reply) seen.add(reply.rpid);
+      list.insertBefore(reply ? replyRow(reply, ownerMid, () => choose(reply))
+        : h('div', { class: 'dy-r mine' }, h('div', { class: 'dy-r-b' }, h('b', {}, `我 回复 @${name}`), h('p', {}, message))), status);
+    }
+    r.rcount++; toggle.hidden = false; toggle.textContent = '收起回复'; toggle.setAttribute('aria-expanded', 'true'); list.hidden = false;
+    status.textContent = '';
+    if (!page && r.rcount === 1) more.hidden = true;
+  };
   toggle.addEventListener('click', () => {
     const open = list.hidden;
     list.hidden = !open; toggle.setAttribute('aria-expanded', String(open));
@@ -287,17 +302,29 @@ function actions(d: Dyn): HTMLElement {
     const list = h('div', { class: 'dy-rlist' });
     const ta = h('textarea', { class: 'dy-in', rows: '1', maxlength: '1000', placeholder: '发一条友善的评论', 'aria-label': '发表评论' }) as HTMLTextAreaElement;
     const send = h('button', { type: 'button', class: 'dy-send', disabled: '' }, '发布') as HTMLButtonElement;
+    let replyTo: { target: Reply; root: string; append: (reply: Reply | null, message: string, name: string) => void } | null = null;
+    const replyLabel = h('span');
+    const clearReply = () => { replyTo = null; replyContext.hidden = true; ta.placeholder = '发一条友善的评论'; ta.focus({ preventScroll: true }); };
+    const replyContext = h('div', { class: 'dy-reply-context', hidden: '' }, replyLabel,
+      h('button', { type: 'button', class: 'dy-reply-cancel', onclick: clearReply }, '取消回复'));
+    const chooseReply = (target: Reply, root: string, append: (reply: Reply | null, message: string, name: string) => void) => {
+      replyTo = { target, root, append }; replyLabel.textContent = `回复 @${target.name}`; replyContext.hidden = false;
+      ta.placeholder = `回复 @${target.name}`; ta.focus();
+    };
     let posting = false;
     const post = async () => {
       const msg = ta.value.trim();
       if (!msg || posting || send.disabled || !d.cmtType || !d.cmtOid) return;
+      const target = replyTo;
       posting = true; send.disabled = true; send.setAttribute('aria-busy', 'true'); send.dataset.marginSending = '';
       try {
-        await dynReply(d.cmtType!, d.cmtOid!, msg);
-        if (ta.value.trim() === msg) ta.value = '';
+        const reply = await dynReply(d.cmtType!, d.cmtOid!, msg, target ? { root: target.root, parent: target.target.rpid } : undefined);
+        if (ta.value.trim() === msg && replyTo === target) { ta.value = ''; clearReply(); }
         d.stat.comment++; cmt.textContent = `评论 ${fmtCount(d.stat.comment)}`;
         status.textContent = '';
-        list.prepend(h('div', { class: 'dy-r mine' }, h('div', { class: 'dy-r-b' }, h('b', {}, '我'), h('p', {}, msg))));
+        if (target) target.append(reply, msg, target.target.name);
+        else list.prepend(reply ? replyThread(reply, d.cmtType!, d.cmtOid!, () => gen === commentGen && !!cmtBox?.isConnected, d.mid, chooseReply)
+          : h('div', { class: 'dy-r mine' }, h('div', { class: 'dy-r-b' }, h('b', {}, '我'), h('p', {}, msg))));
       } catch (err) { say(`发布失败：${(err as Error).message}`); }
       finally { posting = false; send.disabled = false; send.removeAttribute('aria-busy'); delete send.dataset.marginSending; }
     };
@@ -306,7 +333,7 @@ function actions(d: Dyn): HTMLElement {
     const more = h('button', { type: 'button', class: 'dy-comment-more', hidden: '' }, '加载更多评论') as HTMLButtonElement;
     const collapse = h('button', { type: 'button', class: 'dy-comment-collapse', onclick: () => { closeCmt(); cmt.focus({ preventScroll: true }); } }, icon(ICONS.top), '收起评论');
     cmtBox = h('div', { class: 'dy-box dy-cbox', id: `dy-comments-${d.id}`, role: 'region', 'aria-label': `${d.author} 的动态评论` },
-      h('div', { class: 'dy-box-row' }, ta, send), list, status, h('div', { class: 'dy-comment-footer' }, more, collapse));
+      replyContext, h('div', { class: 'dy-box-row' }, ta, send), list, status, h('div', { class: 'dy-comment-footer' }, more, collapse));
     cmt.setAttribute('aria-controls', cmtBox.id);
     wrap.append(cmtBox); cmt.setAttribute('aria-expanded', 'true');
     observeDynamicGlass(cmtBox);
@@ -325,7 +352,7 @@ function actions(d: Dyn): HTMLElement {
         if (gen !== commentGen || !cmtBox?.isConnected) return;
         pn++;
         for (const reply of result.list) if (!seen.has(reply.rpid)) {
-          seen.add(reply.rpid); list.append(replyThread(reply, target.type, target.oid, () => gen === commentGen && !!cmtBox?.isConnected, d.mid));
+          seen.add(reply.rpid); list.append(replyThread(reply, target.type, target.oid, () => gen === commentGen && !!cmtBox?.isConnected, d.mid, chooseReply));
         }
         status.textContent = seen.size ? '' : '还没有评论'; more.hidden = !result.more; more.textContent = '加载更多评论';
       } catch (err) {

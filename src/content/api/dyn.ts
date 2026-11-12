@@ -222,6 +222,7 @@ export async function dynSubReplies(type: number, oid: string, root: string, pn:
   const list: Reply[] = (d.replies ?? []).map(toReply);
   return { list, more: list.length > 0 && pn * (d.page?.size || ps) < (d.page?.count ?? 0) };
 }
-export async function dynReply(type: number, oid: string, message: string): Promise<void> {
-  await postForm('/x/v2/reply/add', { type, oid, message, plat: 1 });
+export async function dynReply(type: number, oid: string, message: string, target?: { root: string; parent: string }): Promise<Reply | null> {
+  const data = await postForm<any>('/x/v2/reply/add', { type, oid, message, plat: 1, ...target });
+  return data?.reply?.rpid_str || data?.reply?.rpid ? toReply(data.reply) : null;
 }

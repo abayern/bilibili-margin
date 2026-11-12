@@ -4,6 +4,15 @@
 
 ## Unreleased
 
+## v0.6.45 · 2026-11-12
+
+- Add replies to root and nested inline dynamic comments using the existing composer and full comment IDs. Support cancellation while preserving failed drafts and recipients, retaining duplicate-submission protection.
+- Fix Firefox weather requests failing on non-iterable native query/header iterators (#158). Use `forEach` while retaining endpoint restrictions, sensitive-parameter/header checks and external-service consent.
+- Avoid page-owned Web Locks in Firefox content scripts so history sync does not misreport a storage failure (#172). Identify Firefox using the extension URL; retain in-flight deduplication, serialized background writes and Chromium cross-tab exclusion without clearing activity data.
+- Include main's existing live-content wallpaper fix (#170) and hot-search placeholder fix (the first part of #171), with light/dark and empty-search regression coverage.
+- Add a native Firefox MV3 content-script boundary test using synthetic history/weather responses, without real account actions. The blank native-page report in #171 and dual-monitor progress bar in #152 remain under investigation and are not claimed fixed.
+- No new dependency or permission.
+
 ## v0.6.41 · 2026-11-11
 
 - Restore card danmaku counts returned as numeric strings. Accept numeric and formatted counts, preserve explicit zero and the user's visibility setting, and omit invalid values.

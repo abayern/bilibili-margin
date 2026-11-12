@@ -62,7 +62,10 @@ async function run(since: Date, options: SyncOptions): Promise<SyncOutcome> {
 let inFlight: Promise<SyncOutcome> | null = null;
 export function syncHistory(since: Date, options: SyncOptions = {}): Promise<SyncOutcome> {
   if (inFlight) return inFlight;
-  const locks = typeof navigator !== 'undefined' ? navigator.locks : undefined;
+  // Firefox's page LockManager cannot resolve an extension-compartment Promise.
+  // Keep local inFlight deduplication; background merges are already serialized.
+  const firefoxContent = chrome.runtime?.getURL?.('').startsWith('moz-extension:') === true;
+  const locks = !firefoxContent && typeof navigator !== 'undefined' ? navigator.locks : undefined;
   // Homepage cards share www.bilibili.com's lock across tabs. No extra extension permission.
   const job: Promise<SyncOutcome> = Promise.resolve().then(async () => {
     if (!locks) return run(since, options);

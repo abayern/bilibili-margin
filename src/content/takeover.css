@@ -583,6 +583,13 @@ a.wh-card:hover { box-shadow: var(--ring), var(--sh-sm); transform: translateY(-
 .dy-r-top { color: var(--accent-text); background: var(--chip); }
 .dy-r p { margin: 4px 0 0; font: 400 14px/1.6 var(--sans); color: var(--ink); white-space: pre-wrap; overflow-wrap: anywhere; }
 .dy-r-meta { display: block; margin-top: 4px; font: 400 11px/1.4 var(--mono); color: var(--faint); }
+.dy-r-reply, .dy-reply-cancel { margin-left: 10px; padding: 2px 4px; border: 0; background: transparent; color: var(--muted); font: 500 12px/1.5 var(--sans); cursor: pointer; }
+.dy-r-reply:hover, .dy-reply-cancel:hover { color: var(--accent); }
+.dy-r-reply:focus-visible, .dy-reply-cancel:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.dy-reply-context { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 8px; color: var(--muted); font: 12px/1.5 var(--sans); }
+.dy-reply-context > span { min-width: 0; overflow-wrap: anywhere; }
+.dy-reply-cancel { flex-shrink: 0; }
+.dy-reply-context[hidden], .dy-replies-toggle[hidden] { display: none; }
 .dy-replies-toggle, .dy-replies-more { padding: 6px 0; border: 0; background: transparent; color: var(--accent); font: 500 12px/1.5 var(--sans); cursor: pointer; text-align: left; }
 .dy-replies-toggle:hover, .dy-replies-more:hover { text-decoration: underline; text-underline-offset: 3px; }
 .dy-replies-toggle:focus-visible, .dy-replies-more:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; border-radius: 3px; }
