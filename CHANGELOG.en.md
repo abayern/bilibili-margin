@@ -4,6 +4,13 @@
 
 ## Unreleased
 
+## v0.6.51 · 2026-11-12
+
+- Read saved weather immediately before network refresh. Keep the last city if location lookup fails and retain historical weather if forecast requests fail.
+- Label cached data with its original timestamp and dated forecasts. Retain city-change, invalid-data and external-service consent checks.
+- Wrap long cache labels to keep the city selector visible. Fresh weather remains available if cache writes fail.
+- Cover service outages, page reloads, browser restarts and same-city location refreshes.
+
 ## v0.6.50 · 2026-11-12
 
 - Add optional navigation labels, off by default, shared by home and watch pages with horizontal scrolling for narrow headers (#157).

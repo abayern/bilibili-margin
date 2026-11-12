@@ -12,6 +12,8 @@ export interface WxDay { name: string; kind: WeatherKind; low: number; high: num
 export interface Wx {
   loc: Loc; temp: number; feels: number; wind: number; rainPct: number; kind: WeatherKind; condition: string;
   offset: number; hours: WxHour[]; days: WxDay[]; at: number;
+  cached?: boolean;
+  stale?: boolean;
 }
 
 const LOC_KEY = 'margin:weather-loc';
@@ -148,11 +150,34 @@ export async function geocodeList(q: string, n = 6): Promise<Place[]> {
 
 const WEEK = '日一二三四五六';
 
+function readCache(loc: Loc | null): Wx | null {
+  if (!loc) return null;
+  try {
+    const c = JSON.parse(localStorage.getItem(CACHE_KEY) || 'null') as Wx | null;
+    if (!c || !validLocation(c.loc) || c.loc.lat !== loc.lat || c.loc.lon !== loc.lon
+      || ![c.temp, c.feels, c.wind, c.rainPct, c.offset, c.at].every(Number.isFinite)
+      || c.at <= 0 || c.at > Date.now() || typeof c.condition !== 'string' || typeof c.kind !== 'string'
+      || !Array.isArray(c.hours) || !c.hours.every(x => x && Number.isFinite(x.temp) && Number.isFinite(x.hour) && typeof x.label === 'string' && typeof x.kind === 'string')
+      || !Array.isArray(c.days) || !c.days.every(x => x && Number.isFinite(x.low) && Number.isFinite(x.high) && typeof x.name === 'string' && typeof x.kind === 'string')) return null;
+    return { ...c, loc, cached: true, stale: Date.now() - c.at >= TTL };
+  } catch { return null; }
+}
+
+/** Read saved data without contacting location or forecast services. */
+export async function localWeather(): Promise<Wx | null> {
+  const settings = await loadSettings();
+  if (!settings.enabled || !settings.privacyExternal) return null;
+  await loadLoc();
+  return readCache(savedLoc());
+}
+
 export async function weather(): Promise<Wx> {
   const settings = await loadSettings();
   if (!settings.enabled || !settings.privacyExternal) throw new PrivacyBlocked();
   await loadLoc();
   let loc = savedLoc();
+  const cached = readCache(loc);
+  if (cached && !cached.stale) return cached;
   if (!loc?.manual && (!loc?.at || Date.now() - loc.at >= AUTO_LOCATION_TTL || loc.at > Date.now())) {
     const stateRevision = location!.revision;
     if (!locating || locating.revision !== stateRevision) {
@@ -164,14 +189,14 @@ export async function weather(): Promise<Wx> {
       locating = { revision: stateRevision, promise };
     }
     const request = locating;
-    try { loc = await request.promise; } finally { if (locating === request) locating = null; }
+    try { loc = await request.promise; }
+    catch (error) {
+      if (!loc || location!.revision !== stateRevision || error instanceof PrivacyBlocked) throw error;
+      // An unavailable location service must not discard the last known city.
+    } finally { if (locating === request) locating = null; }
   }
   if (!loc) throw new Error('请选择天气城市');
   const revision = locRevision, stateRevision = location!.revision;
-  try {
-    const c = JSON.parse(localStorage.getItem(CACHE_KEY) || 'null') as Wx | null;
-    if (c?.loc?.lat === loc.lat && c.loc.lon === loc.lon && Number.isFinite(c.at) && Date.now() >= c.at && Date.now() - c.at < TTL) return { ...c, loc };
-  } catch { /* 重新取 */ }
   if (fetchingWeather?.revision === stateRevision) return fetchingWeather.promise;
   const getForecast = async (): Promise<Wx> => {
     const u = `https://api.open-meteo.com/v1/forecast?latitude=${loc.lat}&longitude=${loc.lon}&timezone=auto&forecast_days=7`
@@ -207,10 +232,19 @@ export async function weather(): Promise<Wx> {
       loc, temp: d.current.temperature_2m, feels: d.current.apparent_temperature, wind: d.current.wind_speed_10m,
       rainPct: d.hourly.precipitation_probability?.[i0] ?? 0, kind, condition, offset, hours, days, at: Date.now(),
     };
-    localStorage.setItem(CACHE_KEY, JSON.stringify(wx));
+    try { localStorage.setItem(CACHE_KEY, JSON.stringify(wx)); } catch { /* Fresh weather remains usable when storage is full. */ }
     return wx;
   };
   const pending = { revision: stateRevision, promise: getForecast() };
   fetchingWeather = pending;
-  try { return await pending.promise; } finally { if (fetchingWeather === pending) fetchingWeather = null; }
+  try { return await pending.promise; }
+  catch (error) {
+    if (revision !== locRevision || location!.revision !== stateRevision || error instanceof PrivacyBlocked) throw error;
+    const fallback = readCache(loc) ?? (cached?.loc.lat === loc.lat && cached.loc.lon === loc.lon ? { ...cached, loc, cached: true, stale: true } : null);
+    if (fallback) {
+      try { localStorage.setItem(CACHE_KEY, JSON.stringify(fallback)); } catch { /* Continue displaying the readable cache. */ }
+      return fallback;
+    }
+    throw error;
+  } finally { if (fetchingWeather === pending) fetchingWeather = null; }
 }

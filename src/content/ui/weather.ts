@@ -1,7 +1,7 @@
 import { every } from '../sched';
 import { introActive } from './intro/gate';
 import { appendMarkup, h } from './dom';
-import { weather, setLoc, savedLoc, type Wx } from '../api/weather';
+import { weather, localWeather, setLoc, savedLoc, type Wx } from '../api/weather';
 import { createCityPicker } from './city-picker';
 import { WEATHER_SKIES, WEATHER_SKY_LAYERS, moonAge, weatherScene, glyphSvg, SKY_PITCH, FRAME } from './dotsky';
 import { onMotionChange, reducedMotion } from '../motion';
@@ -112,15 +112,20 @@ export function createWeather(onPrivacy?: () => void): HTMLElement {
     const place = h('button', { class: 'wx-city', type: 'button', title: [w.loc.region, w.loc.manual ? '手动选择' : 'IP 粗定位', '点击更换城市'].filter(Boolean).join(' · ') }, w.loc.name);
     place.onclick = () => editCity(place);
     clockEl.textContent = clock();
-    const hours = h('ol', { class: 'wx-hours', 'aria-label': '未来几个时段' },
+    const hours = h('ol', { class: 'wx-hours', 'aria-label': w.stale ? '缓存中的时段预报' : '未来几个时段' },
       ...w.hours.map((x) => {
-        const li = h('li', { 'aria-label': `${x.label} ${deg(x.temp)}` }, h('span', { class: 'wx-hl' }, x.label));
+        const label = w.stale && x.label === '现在' ? '采集时' : x.label;
+        const li = h('li', { 'aria-label': `${label} ${deg(x.temp)}` }, h('span', { class: 'wx-hl' }, label));
         appendMarkup(li, glyphSvg(x.kind, x.hour));
         li.append(h('b', {}, deg(x.temp)));
         return li;
       }));
     // 3 天：低温→高温点条，共用一个刻度（原 Weather.Week）
-    const days = w.days.slice(0, 3);
+    const days = w.days.slice(0, 3).map((day, index) => {
+      if (!w.stale) return day;
+      const date = new Date(w.at + w.offset * 1000 + index * 86400000);
+      return { ...day, name: `${date.getUTCMonth() + 1}/${date.getUTCDate()}` };
+    });
     const lo = Math.floor(Math.min(...days.map((d) => d.low), w.temp));
     const hi = Math.ceil(Math.max(...days.map((d) => d.high), w.temp));
     const span = Math.max(1, Math.min(20, hi - lo));
@@ -134,7 +139,7 @@ export function createWeather(onPrivacy?: () => void): HTMLElement {
       }
       return `<svg class="wx-bar" viewBox="0 0 ${(span + 1) * 8} 6" preserveAspectRatio="none" shape-rendering="crispEdges" aria-hidden="true"><path class="b-off" d="${off}"/><path class="b-lit" d="${lit}"/><path class="b-now" d="${cur}"/></svg>`;
     };
-    const week = h('ul', { class: 'wx-week', 'aria-label': '未来三天' },
+    const week = h('ul', { class: 'wx-week', 'aria-label': w.stale ? '缓存中的日期预报' : '未来三天' },
       ...days.map((d, i) => {
         const li = h('li', { 'aria-label': `${d.name} ${deg(d.low)} 到 ${deg(d.high)}`, 'data-kind': d.kind }, h('span', { class: 'wx-dn' }, d.name));
         appendMarkup(li, glyphSvg(d.kind));
@@ -147,7 +152,7 @@ export function createWeather(onPrivacy?: () => void): HTMLElement {
       h('header', { class: 'wx-head' },
         h('div', { class: 'wx-place' }, place, h('small', {}, `体感 ${deg(w.feels)} · 降水 ${w.rainPct}% · ${Math.round(w.wind)} km/h`)),
         h('div', { class: 'wx-live' }, h('i', { class: 'wx-led' }),
-          h('span', { title: `上次更新：${new Date(w.at).toLocaleString()}` }, refreshFailed ? `待更新 · ${new Date(w.at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}` : 'Live'), clockEl)),
+          h('span', { title: `数据采集时间：${new Date(w.at).toLocaleString()}` }, w.cached ? `${w.stale ? '待更新 · ' : ''}本地缓存 · ${new Date(w.at).toLocaleString([], { month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit' })}` : refreshFailed ? `待更新 · ${new Date(w.at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}` : 'Live'), clockEl)),
       hours, week);
     el.replaceChildren(sky, side);
     paint();
@@ -157,8 +162,13 @@ export function createWeather(onPrivacy?: () => void): HTMLElement {
   let loadSequence = 0;
   const load = (quiet = false) => {
     const request = ++loadSequence;
+    let finished = false;
+    void localWeather().then(cached => {
+      if (!finished && request === loadSequence && cached && (!wx || wx.at < cached.at || wx.loc.lat !== cached.loc.lat || wx.loc.lon !== cached.loc.lon)) { wx = cached; render(); }
+    }).catch(() => {});
     if (!quiet) fetchedAt = Date.now();
-    weather().then((x) => { if (request === loadSequence) { wx = x; refreshFailed = false; render(); } }).catch((err) => {
+    weather().then((x) => { finished = true; if (request === loadSequence) { wx = x; refreshFailed = false; render(); } }).catch((err) => {
+      finished = true;
       if (request !== loadSequence) return;
       if (err?.name === 'AbortError' && err?.message === '天气位置已更改') return;
       const choose = h('button', { type: 'button', class: 'ghost small', onclick: () => editCity(choose) }, '选择城市');

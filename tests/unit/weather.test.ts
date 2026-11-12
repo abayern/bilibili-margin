@@ -103,6 +103,40 @@ describe('共享位置与迁移', () => {
 });
 
 describe('定位与预报请求', () => {
+  it('读取本地天气不请求网络，重新加载模块后仍能读取', async () => {
+    await api.setLoc(zhuhai); vi.stubGlobal('fetch', vi.fn(async () => response(forecast())));
+    await api.weather(); const fetcher = vi.fn(); vi.stubGlobal('fetch', fetcher);
+    vi.resetModules(); api = await import('../../src/content/api/weather');
+    expect(await api.localWeather()).toMatchObject({ temp: 25, cached: true, stale: false });
+    expect(fetcher).not.toHaveBeenCalled();
+  });
+  it('有效缓存优先于过期自动定位，即使断网也立即返回', async () => {
+    await api.setLoc(zhuhai); vi.stubGlobal('fetch', vi.fn(async () => response(forecast()))); await api.weather();
+    api.savedLoc()!.manual = false; api.savedLoc()!.at = Date.now() - AUTO_LOCATION_TTL - 1;
+    const fetcher = vi.fn(async () => { throw new TypeError('offline'); }); vi.stubGlobal('fetch', fetcher);
+    expect(await api.weather()).toMatchObject({ temp: 25, cached: true, stale: false }); expect(fetcher).not.toHaveBeenCalled();
+  });
+  it('定位与预报均失败时保留历史缓存，更新时间不刷新', async () => {
+    await api.setLoc(zhuhai); vi.stubGlobal('fetch', vi.fn(async () => response(forecast()))); const cached = await api.weather();
+    cached.at = Date.now() - 3 * 86400_000; localStorage.setItem(CACHE_KEY, JSON.stringify(cached));
+    api.savedLoc()!.manual = false; api.savedLoc()!.at = Date.now() - AUTO_LOCATION_TTL - 1;
+    vi.stubGlobal('fetch', vi.fn(async () => { throw new TypeError('offline'); }));
+    expect(await api.weather()).toMatchObject({ temp: 25, at: cached.at, cached: true, stale: true });
+    expect(await api.localWeather()).toMatchObject({ at: cached.at, stale: true });
+  });
+  it('自动定位刷新到相同城市而预报失败时，恢复被位置版本清理的缓存', async () => {
+    await api.setLoc(zhuhai); vi.stubGlobal('fetch', vi.fn(async () => response(forecast()))); const cached = await api.weather();
+    cached.at = Date.now() - 31 * 60_000; localStorage.setItem(CACHE_KEY, JSON.stringify(cached));
+    api.savedLoc()!.manual = false; api.savedLoc()!.at = Date.now() - AUTO_LOCATION_TTL - 1;
+    vi.stubGlobal('fetch', vi.fn(async (url: string) => url.includes('ipwho.is') ? response({ success: true, city: 'Zhuhai', latitude: zhuhai.lat, longitude: zhuhai.lon }) : response({}, 503)));
+    expect(await api.weather()).toMatchObject({ temp: 25, at: cached.at, stale: true });
+    expect(JSON.parse(localStorage.getItem(CACHE_KEY)!)).toMatchObject({ at: cached.at });
+  });
+  it('损坏的缓存不展示，改用新预报', async () => {
+    await api.setLoc(zhuhai); localStorage.setItem(CACHE_KEY, JSON.stringify({ loc: zhuhai, temp: 25, at: Date.now(), hours: [null] }));
+    vi.stubGlobal('fetch', vi.fn(async () => response(forecast(12))));
+    expect(await api.localWeather()).toBeNull(); expect((await api.weather()).temp).toBe(12);
+  });
   it.each([{}, { success: false }, { success: true, city: 'bad', latitude: 91, longitude: 0 }])('IP无效响应不保存假位置 %j', async body => {
     const fetcher = vi.fn(async () => response(body)); vi.stubGlobal('fetch', fetcher);
     await expect(api.weather()).rejects.toThrow(); expect(api.savedLoc()).toBeNull(); expect(store[WEATHER_LOCATION_KEY]).toBeUndefined(); expect(fetcher).toHaveBeenCalledTimes(1);

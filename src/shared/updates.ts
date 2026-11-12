@@ -1,6 +1,8 @@
 export const UPDATE_PENDING = 'margin:update-pending';
 export const UPDATE_SEEN = 'margin:update-seen';
 export const UPDATE_NOTES = [
+  "天气优先读取本地缓存，断网后保留原采集时间，定位失败沿用最后城市。",
+  "历史天气标明缓存日期，长时间提示支持换行，城市入口保持可见。",
   "顶栏可选显示文字，默认关闭，首页和播放页同步。",
   "动态布局可切换经典与左侧关注，直播卡片随布局调整，选择 UP 后回到顶部。",
   "动态、空间、历史等接管页面增加返回顶部入口。",

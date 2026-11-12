@@ -122,7 +122,9 @@ jobs:
         env:
           SMOKE_OUT: smoke-artifacts/reported-issues
       - name: Weather location, offline cities and cross-domain recovery
-        run: node tests/weather-system.mjs
+        run: |
+          node tests/weather-system.mjs
+          node tests/weather-offline.mjs
         env:
           SMOKE_OUT: smoke-artifacts/weather-system
       - name: Transparent dynamic glass and undistorted content
