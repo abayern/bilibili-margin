@@ -3,7 +3,8 @@
  * 各标签页在活跃时发心跳（一段时间区间），这里串行地读-改-写 chrome.storage.local，
  * 多标签页同时打开也不会互相覆盖或重复累计（v0.30 及更早是各页面自己读改写，会丢数据）。
  */
-import { APP, APP_AUTH_KEY, FEED_BASE, appSign, toAppItem, type AppAuth, type AppItem, type AppMessage } from '../shared/app-feed';
+import { APP, FEED_BASE, appSign, toAppItem, type AppAuth, type AppItem, type AppMessage } from '../shared/app-feed';
+import { appAuthState, readAppAuth, rememberAppAuth, revokeAppAuth, saveAppAuth } from './app-auth';
 import type { FpMessage } from '../shared/activity';
 import { getSponsorSegments } from './sponsor';
 import { handleFootprint } from './footprint';
@@ -32,10 +33,7 @@ async function handle(m: FpMessage): Promise<unknown> {
 /* ---------- App 推荐流（v0.48 实验） ---------- */
 async function auth(): Promise<AppAuth | null> {
   await authReady;
-  const a = (await chrome.storage.session.get(APP_AUTH_KEY))[APP_AUTH_KEY] as AppAuth | undefined;
-  if (!a?.key) return null;
-  if (!Number.isFinite(a.exp) || a.exp * 1000 <= Date.now()) { await chrome.storage.session.remove(APP_AUTH_KEY); return null; }
-  return a;
+  return readAppAuth();
 }
 async function getJ(url: string): Promise<any> { // eslint-disable-line @typescript-eslint/no-explicit-any
   const r = await fetch(url, { credentials: 'omit', referrerPolicy: 'no-referrer', redirect: 'error' });
@@ -45,13 +43,18 @@ async function getJ(url: string): Promise<any> { // eslint-disable-line @typescr
 
 async function handleApp(m: AppMessage): Promise<unknown> {
   await authReady;
-  if (m.op === 'state') { const a = await auth(); return { ok: true, authed: !!a, mid: a?.mid ?? 0, exp: a?.exp ?? 0 }; }
-  if (m.op === 'revoke') { await chrome.storage.session.remove(APP_AUTH_KEY); return { ok: true }; }
+  if (m.op === 'state') return appAuthState();
+  if (m.op === 'revoke') { await revokeAppAuth(); return { ok: true }; }
+  if (m.op === 'remember') {
+    if (typeof m.enabled !== 'boolean') return { ok: false, error: '授权选项无效' };
+    await rememberAppAuth(m.enabled);
+    return { ok: true };
+  }
   if (m.op === 'save') {
     const key = m.key;
     if (typeof key !== 'string' || !/^[0-9a-zA-Z_-]{16,128}$/.test(key) || !Number.isSafeInteger(m.mid) || m.mid <= 0 || !Number.isFinite(m.expiresIn) || m.expiresIn <= 0 || m.expiresIn > 366 * 86400) return { ok: false, error: '授权数据无效' };
     const a: AppAuth = { key, mid: m.mid, exp: Math.floor(Date.now() / 1000) + Math.floor(m.expiresIn) };
-    await chrome.storage.session.set({ [APP_AUTH_KEY]: a });
+    await saveAppAuth(a);
     return { ok: true };
   }
   if (m.op === 'feed') {
@@ -60,7 +63,7 @@ async function handleApp(m: AppMessage): Promise<unknown> {
     const q: Record<string, string | number> = { ...FEED_BASE, idx: Math.max(0, Math.floor(Number(m.idx) || 0)), pull: m.idx ? 0 : 1, flush: 0, column: 4, fnval: 272 };
     if (a) q.access_key = a.key;
     const d = await getJ(`${APP.feed}?${appSign(q)}`);
-    if (d.code === -101 || d.code === 62011) { await chrome.storage.session.remove(APP_AUTH_KEY); return { ok: false, error: '授权已失效，请在设置里重新扫码', expired: true }; }
+    if (d.code === -101 || d.code === 62011) { if (a) await revokeAppAuth(a.key); return { ok: false, error: '授权已失效，请在设置里重新扫码', expired: true }; }
     if (d.code !== 0) return { ok: false, error: d.message || `code ${d.code}` };
     const raw = (d.data?.items ?? []) as unknown[];
     const items = raw.map(toAppItem).filter((x): x is AppItem => !!x);
@@ -72,6 +75,7 @@ async function handleApp(m: AppMessage): Promise<unknown> {
     const a = await auth();
     if (!a) return { ok: false, error: '未授权' };
     const d = await getJ(`${m.cancel ? APP.undislike : APP.dislike}?${appSign({ ...FEED_BASE, access_key: a.key, goto: 'av', id: m.aid, mid: m.mid, reason_id: m.reason })}`);
+    if (d.code === -101 || d.code === 62011) await revokeAppAuth(a.key);
     return { ok: d.code === 0, error: d.message };
   }
   return { ok: false };

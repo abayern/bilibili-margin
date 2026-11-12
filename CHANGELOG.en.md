@@ -4,6 +4,13 @@
 
 ## Unreleased
 
+## v0.6.49 · 2026-11-12
+
+- Add an opt-in Remember authorization switch for the App recommendation feed. Off by default, remembered credentials survive browser restarts for up to 30 days, bounded by Bilibili's expiry (#174).
+- Turning it off removes the saved copy while retaining the current session. Revocation, expiry checks and invalid-token responses clear credentials. Serialize auth changes and prevent stale requests from revoking a newer login.
+- Store remembered credentials in extension-origin IndexedDB outside settings exports. Report failed QR credential saves and allow retrying.
+- Add browser-restart, expiry, revocation, concurrency and settings-switch regression coverage, and update the privacy notice.
+
 ## v0.6.45 · 2026-11-12
 
 - Add replies to root and nested inline dynamic comments using the existing composer and full comment IDs. Support cancellation while preserving failed drafts and recipients, retaining duplicate-submission protection.

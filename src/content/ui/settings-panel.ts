@@ -10,7 +10,7 @@ import { clampBatchSize } from '../../shared/batch';
 import { fmtCount, h, icon, ICONS } from './dom';
 import { createSettingsPage, type SettingsPage } from './settings-page';
 import { SITE_LINKS } from './header';
-import { appPoll, appQr, appRevoke, appState } from '../api/appfeed';
+import { appPoll, appQr, appRemember, appRevoke, appState } from '../api/appfeed';
 import { clearLoc, loadLoc, savedLoc, setLoc as setLocWithName } from '../api/weather';
 import { createCityPicker } from './city-picker';
 import { forgetSearch } from '../api/search-history';
@@ -429,10 +429,24 @@ function buildSettingsPanel(sheet: SettingsPage, get: () => Settings, currentSha
   const appOff = h('button', { type: 'button', class: 'ghost small', hidden: true }, h('span', {}, '取消授权')) as HTMLButtonElement;
   let pollT = 0, pollRun = 0;
   let authed = false;
+  const rememberT = toggle(false, '记住授权', async (enabled) => {
+    rememberT.disabled = true;
+    try {
+      const result = await appRemember(enabled);
+      if (!result.ok) throw new Error(result.error || '保存失败');
+      await paintApp();
+    } catch {
+      rememberT.setAttribute('aria-checked', String(!enabled));
+      say('授权选项保存失败，请重试');
+    } finally { rememberT.disabled = false; }
+  });
+  rememberT.disabled = true;
   const stopPoll = () => { window.clearTimeout(pollT); pollT = 0; pollRun++; appBtn.disabled = false; };
   const paintApp = async () => {
     const st = await appState().catch(() => null);
     authed = !!st?.authed;
+    rememberT.setAttribute('aria-checked', String(st?.remember === true));
+    rememberT.disabled = !st?.ok;
     appStat.textContent = authed ? `已授权 · UID ${st!.mid}${st!.exp ? ` · ${new Date(st!.exp * 1000).toLocaleDateString()} 到期` : ''}` : '未授权：推荐来自 App，但不是你的个性化推荐';
     appBtn.querySelector('span')!.textContent = authed ? '重新扫码' : '扫码授权';
     appOff.hidden = !authed;
@@ -614,7 +628,7 @@ function buildSettingsPanel(sheet: SettingsPage, get: () => Settings, currentSha
     row('允许外部辅助服务', '默认关闭；开启后允许天气定位、天气查询、社区广告片段和 GitHub 更新查询。服务会接收请求 IP。', externalT),
     row('保存最近搜索', '默认关闭；开启后只存扩展内，最多 8 条、30 天过期，读取时清理。', historyT),
     row('搜索记录', null, clearHistory),
-    h('p', { class: 'stg-note' }, 'App 授权仅保留在当前浏览器会话，重启后需重新扫码。'),
+    h('p', { class: 'stg-note' }, 'App 授权默认仅保留在当前会话；可在实验功能中开启「记住授权」，最多保存 30 天。'),
     h('div', { class: 'row' },
       h('div', { class: 'row-label' },
         h('span', {}, '备份与迁移'),
@@ -624,7 +638,8 @@ function buildSettingsPanel(sheet: SettingsPage, get: () => Settings, currentSha
   sheet.section('lab', '实验功能', '可能随版本调整的功能，默认关闭。',
     row('App 推荐流', '首页「推荐」改用手机 App 的推荐；关掉就是网页版原来的推荐', appT),
     drawer('App 授权', () => (authed ? '已授权' : '未授权'),
-      h('p', { class: 'sd-note' }, '用 B 站 App 扫码授权。凭证只保存在本次浏览器会话，重启后需重新扫码，可随时取消。'),
+      h('p', { class: 'sd-note' }, '用 B 站 App 扫码授权，可随时取消。默认重启浏览器后需重新扫码。'),
+      row('记住授权', '默认关闭。开启后在本机保留最多 30 天，以 B 站有效期为上限；关闭后仅保留当前会话。', rememberT),
       h('div', { class: 'af-row' }, appStat, h('div', { class: 'data-acts' }, appBtn, appOff)), appQrBox, appQrNote),
     row('X 式重排', '按你的观看历史重新排：常看完的 UP 往前，秒退和「不感兴趣」的往后，混入关注的人 48 小时内的新稿，看过的不再出现。只在本机计算，可和 App 推荐流一起用', rankT));
 

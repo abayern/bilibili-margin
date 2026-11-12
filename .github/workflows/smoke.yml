@@ -181,6 +181,7 @@ jobs:
           SMOKE_OUT=smoke-artifacts/watch-auto-mode node tests/watch-auto-mode.mjs
           SMOKE_OUT=smoke-artifacts/lightbox node tests/lightbox.mjs
           SMOKE_OUT=smoke-artifacts/app-auth-feedback node tests/app-auth-feedback.mjs
+          SMOKE_OUT=smoke-artifacts/app-auth-remember node tests/app-auth-remember.mjs
           SMOKE_OUT=smoke-artifacts/settings-thumbnails node tests/settings-thumbnails.mjs
       - name: Live fullscreen, automatic wide alignment, subscriptions and pointer release
         run: |
