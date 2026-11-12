@@ -4,6 +4,12 @@
 
 ## Unreleased
 
+## v0.6.52 · 2026-11-12
+
+- Support HTTPS image URLs for custom backgrounds. Preview before applying, persist the URL and synchronize open MARGIN pages.
+- Preserve the current background when loading fails and discard previews after input changes. Retain local image uploads.
+- Guard stale background reads, escape CSS image URLs and update the privacy notice.
+
 ## v0.6.51 · 2026-11-12
 
 - Read saved weather immediately before network refresh. Keep the last city if location lookup fails and retain historical weather if forecast requests fail.

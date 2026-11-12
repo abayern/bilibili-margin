@@ -369,6 +369,57 @@ function buildSettingsPanel(sheet: SettingsPage, get: () => Settings, currentSha
     say('背景图已更新');
   });
   const upload = h('button', { type: 'button', class: 'ghost small', onclick: () => file.click() }, icon(ICONS.image), h('span', {}, '上传图片'));
+  const imageUrl = h('input', { type: 'url', class: 'city-in', placeholder: 'https://…', 'aria-label': '背景图片 URL', spellcheck: 'false' });
+  const imagePreview = h('img', { alt: '背景图片预览', hidden: true, style: 'display:none;width:100%;max-height:160px;object-fit:cover;border-radius:12px' });
+  const imageNote = h('small', { role: 'status', 'aria-live': 'polite' });
+  const previewUrl = h('button', { type: 'button', class: 'ghost small' }, '预览');
+  const applyUrl = h('button', { type: 'button', class: 'ghost small', disabled: true }, '应用链接');
+  let imageRun = 0, previewedUrl = '';
+  imageUrl.addEventListener('input', () => {
+    imageRun++; previewedUrl = ''; applyUrl.disabled = true; previewUrl.disabled = false;
+    imagePreview.hidden = true; imagePreview.style.display = 'none'; imageNote.textContent = '';
+  });
+  previewUrl.onclick = async () => {
+    const run = ++imageRun;
+    applyUrl.disabled = true; previewedUrl = '';
+    try {
+      const url = new URL(imageUrl.value.trim());
+      if (url.protocol !== 'https:' || url.username || url.password) throw new Error('请填写 HTTPS 图片直链');
+      previewUrl.disabled = true; imageNote.textContent = '正在加载图片…';
+      const probe = new Image(); probe.referrerPolicy = 'no-referrer';
+      await new Promise<void>((resolve, reject) => {
+        const timer = setTimeout(() => { probe.src = ''; reject(new Error('图片加载超时，请重试')); }, 12000);
+        probe.onload = () => { clearTimeout(timer); resolve(); };
+        probe.onerror = () => { clearTimeout(timer); reject(new Error('图片加载失败，请检查直链或防盗链限制')); };
+        probe.src = url.href;
+      });
+      if (run !== imageRun) return;
+      imagePreview.src = url.href; imagePreview.hidden = false; imagePreview.style.display = 'block';
+      previewedUrl = url.href; applyUrl.disabled = false; imageNote.textContent = '图片可用，点击应用后设为背景';
+    } catch (error) {
+      if (run === imageRun) imageNote.textContent = error instanceof TypeError ? '请输入有效的 HTTPS 图片直链' : error instanceof Error ? error.message : '图片加载失败';
+    } finally { if (run === imageRun) previewUrl.disabled = false; }
+  };
+  imageUrl.addEventListener('keydown', event => {
+    if (event.key === 'Enter') { event.preventDefault(); previewUrl.click(); }
+  });
+  applyUrl.onclick = async () => {
+    if (!previewedUrl || applyUrl.disabled) return;
+    const url = previewedUrl;
+    applyUrl.disabled = true;
+    imageUrl.disabled = true; previewUrl.disabled = true;
+    try {
+      await chrome.storage.local.set({ [BG_IMAGE_KEY]: url });
+      await save({ bg: { ...get().bg, mode: 'image' } });
+      dispatchEvent(new CustomEvent('margin:bg-image'));
+      imageNote.textContent = '链接背景已应用'; say('背景图已更新');
+    } catch { imageNote.textContent = '保存失败，请重试'; }
+    finally { applyUrl.disabled = previewedUrl !== url; imageUrl.disabled = false; previewUrl.disabled = false; }
+  };
+  void chrome.storage.local.get(BG_IMAGE_KEY).then(data => {
+    const value = data[BG_IMAGE_KEY];
+    if (!imageRun && !imageUrl.value && typeof value === 'string' && value.startsWith('https://')) imageUrl.value = value;
+  }).catch(() => {});
 
   // ── 数据：导出 / 导入设置与足迹（JSON 文件，只在本机处理） ──
   const exportData = async () => {
@@ -577,7 +628,9 @@ function buildSettingsPanel(sheet: SettingsPage, get: () => Settings, currentSha
       block('强度', null, intensity),
       h('div', { class: 'row' },
         h('div', { class: 'row-label' }, h('span', {}, '自定义图片'), h('small', {}, '压缩后只保存在本机')),
-        upload, file)));
+        upload, file),
+      block('图片链接', '粘贴 HTTPS 图片直链。应用后由浏览器加载，图片服务会收到请求 IP。',
+        h('div', { class: 'city-box' }, h('div', { class: 'city-row' }, imageUrl, previewUrl, applyUrl), imageNote, imagePreview))));
 
   sheet.section('home', '首页', '首页显示什么、怎么排。',
     row('搜索框', '关掉后用顶栏的小搜索框', searchT),

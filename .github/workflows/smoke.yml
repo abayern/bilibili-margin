@@ -185,6 +185,7 @@ jobs:
           SMOKE_OUT=smoke-artifacts/app-auth-feedback node tests/app-auth-feedback.mjs
           SMOKE_OUT=smoke-artifacts/app-auth-remember node tests/app-auth-remember.mjs
           SMOKE_OUT=smoke-artifacts/settings-thumbnails node tests/settings-thumbnails.mjs
+          SMOKE_OUT=smoke-artifacts/background-url node tests/background-url.mjs
       - name: Live fullscreen, automatic wide alignment, subscriptions and pointer release
         run: |
           SMOKE_OUT=smoke-artifacts/watch-screen node tests/watch-screen.mjs
