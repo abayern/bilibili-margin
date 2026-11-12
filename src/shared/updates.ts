@@ -1,6 +1,9 @@
 export const UPDATE_PENDING = 'margin:update-pending';
 export const UPDATE_SEEN = 'margin:update-seen';
 export const UPDATE_NOTES = [
+  "顶栏可选显示文字，默认关闭，首页和播放页同步。",
+  "动态布局可切换经典与左侧关注，直播卡片随布局调整，选择 UP 后回到顶部。",
+  "动态、空间、历史等接管页面增加返回顶部入口。",
   "App 推荐增加「记住授权」，默认关闭，开启后最多保留 30 天，以 B 站有效期为上限。",
   "关闭记住授权后仅保留当前会话；取消、到期或授权失效会清理凭据。",
   "修复扫码授权保存失败仍显示成功的问题。",

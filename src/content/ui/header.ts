@@ -130,6 +130,7 @@ export function createHeader(o: { tabs: TabItem[]; onTheme: () => void; onSearch
   }
   // 默认保留旧版顺序；自定义排序包含个人入口时，各项按同一序列排列。
   const applyPrefs = (st: Settings) => {
+    tabsNav.el.classList.toggle('et-labels', st.headLabels);
     upload.hidden = st.headHide.includes('投稿');
     const siteIdx = new Map(SITE_LINKS.map((l, i) => [l.title, i]));
     const titles = tabsNav.buttons.map((b) => b.querySelector('span')?.textContent ?? '');
@@ -145,7 +146,7 @@ export function createHeader(o: { tabs: TabItem[]; onTheme: () => void; onSearch
     tabsNav.el.querySelector<HTMLElement>('.et-thumb')?.style.setProperty('order', '-1');
   };
   loadSettings().then(applyPrefs).catch(() => {});
-  onSettingsChange((n, p) => { if (n.headHide.join() !== p.headHide.join() || n.headOrder.join() !== p.headOrder.join()) applyPrefs(n); });
+  onSettingsChange((n, p) => { if (n.headLabels !== p.headLabels || n.headHide.join() !== p.headHide.join() || n.headOrder.join() !== p.headOrder.join()) applyPrefs(n); });
   // 屏蔽词/隐藏广告变化后，悬停列表的 60 秒缓存要失效
   o.filter?.onChange(() => popHandles.forEach((p) => p.invalidate()));
   const sunMoon = createSunMoon(o.onTheme);

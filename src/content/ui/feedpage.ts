@@ -49,9 +49,26 @@ export class FeedApp {
 
   update(s: Settings): void {
     this.shell.update(s);
+    this.applyLayout();
     const box = this.shell.app.querySelector<HTMLElement>('.fd-follows');
-    if (box) box.hidden = !s.feedFollowList;
+    if (box) box.hidden = !s.feedFollowList || s.feedLayout === 'sidebar';
     else if (s.feedFollowList && this.followParent) void this.renderFollowList(this.followParent);
+  }
+
+  private applyLayout(): void {
+    const app = this.shell.app;
+    const sidebar = this.shell.settings.feedLayout === 'sidebar';
+    app.classList.toggle('fd-sidebar', sidebar);
+    const left = app.querySelector('.fd-left');
+    const right = app.querySelector('.fd-right');
+    const bar = app.querySelector('.fd-bar');
+    if (sidebar) { if (this.strip.parentElement !== left) left?.append(this.strip); }
+    else if (this.strip.nextElementSibling !== bar) bar?.before(this.strip);
+    const live = app.querySelector('.fd-live');
+    const liveParent = sidebar ? right : left;
+    if (live && live.parentElement !== liveParent) liveParent?.append(live);
+    const follows = app.querySelector<HTMLElement>('.fd-follows');
+    if (follows) follows.hidden = sidebar || !this.shell.settings.feedFollowList;
   }
 
   private render(): void {
@@ -80,6 +97,7 @@ export class FeedApp {
       h('div', { class: 'bar-row fd-bar' }, this.tabs),
       this.list, this.status, this.sentinel);
     s.main.append(h('div', { class: 'fd' }, left, center, right));
+    this.applyLayout();
     new IntersectionObserver((es) => { if (es.some((e) => e.isIntersecting)) this.load(); }, { root: s.app, rootMargin: '1200px 0px' }).observe(this.sentinel);
     // 动态流同时用 compileDynFilter（含转发内容）和 FilterRuntime，条件变化后重新拉取一次
     this.shell.filter.onChange(() => this.reload());
@@ -96,7 +114,7 @@ export class FeedApp {
       }
       this.renderMe(left);
       this.followParent = left;
-      portal().then((p) => { this.renderUps(p.ups); this.renderLive(left, p.live, p.liveCount); }).catch(() => { /* 头像条可缺省 */ });
+      portal().then((p) => { this.renderUps(p.ups); this.renderLive(left, p.live, p.liveCount); this.applyLayout(); }).catch(() => { /* 头像条可缺省 */ });
       void this.renderFollowList(left);
       this.load();
     }).catch(() => this.load());
@@ -104,7 +122,7 @@ export class FeedApp {
 
   /** #16：左侧「关注」列表——比头像条能装更多人，点一行就把动态流切成该 UP */
   private async renderFollowList(left: HTMLElement): Promise<void> {
-    if (this.followingStarted || !this.shell.settings.feedFollowList) return;
+    if (this.followingStarted || !this.shell.settings.feedFollowList || this.shell.settings.feedLayout === 'sidebar') return;
     this.followingStarted = true;
     const a = await account().catch(() => null);
     if (!a || !this.shell.settings.feedFollowList) { this.followingStarted = false; return; }
@@ -117,6 +135,7 @@ export class FeedApp {
       h('h3', { style: 'margin:0;font-size:13px;font-weight:600' }, '关注'),
       h('a', { class: 'ghost', href: `https://space.bilibili.com/${a.mid}/fans/follow`, target: '_blank', rel: 'noopener', style: 'font-size:11px;opacity:.6;text-decoration:none;color:inherit' }, '全部'));
     const box = h('section', { class: 'fd-card fd-follows', style: 'padding:12px' }, head, list, more);
+    box.hidden = this.shell.app.classList.contains('fd-sidebar') || !this.shell.settings.feedFollowList;
     left.append(box);
 
     let pn = 0, done = false, loading = false;
@@ -196,6 +215,7 @@ export class FeedApp {
       if (fresh) b.classList.add('fresh');
       b.addEventListener('click', () => {
         this.host = this.host === mid ? 0 : mid;
+        if (this.shell.settings.feedLayout === 'sidebar') this.shell.app.scrollTo({ top: 0, behavior: reducedMotion() ? 'instant' : 'smooth' });
         b.classList.remove('fresh');
         this.strip.querySelectorAll<HTMLElement>('.fd-up').forEach((x) => x.setAttribute('aria-pressed', String(Number(x.dataset.mid) === this.host)));
         if (b.parentElement === row) {

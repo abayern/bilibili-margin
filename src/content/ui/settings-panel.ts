@@ -200,6 +200,8 @@ function buildSettingsPanel(sheet: SettingsPage, get: () => Settings, currentSha
   const radS = segmented<string>([['0', '直角'], ['50', '小'], ['100', '默认'], ['150', '大']], String(s0.radius), (v) => save({ radius: Number(v) as 0 | 50 | 100 | 150 }));
   const cfsS = segmented<string>([['14', '14'], ['15', '15'], ['16', '16'], ['17', '17']], String(s0.commentSize), (v) => save({ commentSize: Number(v) as 14 | 15 | 16 | 17 }));
   const hoverT = toggle(s0.headHover, '顶栏悬停指示', (v) => save({ headHover: v }));
+  const labelsT = toggle(s0.headLabels, '顶栏显示文字', (v) => save({ headLabels: v }));
+  const feedLayout = segmented<Settings['feedLayout']>([['classic', '经典'], ['sidebar', '左侧关注']], s0.feedLayout, v => save({ feedLayout: v }));
   const cmdKT = toggle(s0.cmdK, 'Ctrl+K 打开命令面板', (v) => save({ cmdK: v }));
   // 视频 CDN 节点（v0.47.2）：列表 + 延迟测速；选中后新打开的视频生效
   const CDNS: [string, string][] = [
@@ -565,6 +567,7 @@ function buildSettingsPanel(sheet: SettingsPage, get: () => Settings, currentSha
     row('收藏夹列数', null, favCols),
     row('账号卡片可拖拽', '关掉后头像下的卡片固定挂着，不能甩动，点一下仍可翻面', idD),
     row('动态页关注列表', '显示左侧关注列表，顶部头像条保留', followListT),
+    block('动态页布局', '左侧关注将近期更新移到左栏，直播移到右栏；选择 UP 后回到顶部', feedLayout),
     sub('背景'),
     block('模式', '随机：每次打开换一款，不连续重复', mode),
     block('样式', null, swatches),
@@ -596,6 +599,7 @@ function buildSettingsPanel(sheet: SettingsPage, get: () => Settings, currentSha
     palSpeedRow,
     row('Ctrl+K 打开命令面板', 'B 站自己没有 Ctrl+K；和浏览器或其他扩展冲突时关掉，按 / 照样能打开', cmdKT),
     row('悬停指示', '指示条跟随鼠标移到的顶栏图标；关闭后跟随点击', hoverT),
+    row('顶栏显示文字', '在快捷入口图标旁显示名称，默认关闭', labelsT),
     drawer('顶栏入口', () => { const n = get().headHide.length; return n ? `已隐藏 ${n} 个` : '全部显示'; },
       h('p', { class: 'sd-note' }, '关掉的入口不在顶栏显示；用箭头调整快捷入口顺序。「设置」始终保留'),
       headList, h('div', { class: 'hl-foot' }, headReset)));
@@ -698,6 +702,8 @@ function buildSettingsPanel(sheet: SettingsPage, get: () => Settings, currentSha
       accent.set(s.accent);
       glass.set(s.glass);
       hoverT.setAttribute('aria-checked', String(s.headHover));
+      labelsT.setAttribute('aria-checked', String(s.headLabels));
+      feedLayout.set(s.feedLayout);
       cmdKT.setAttribute('aria-checked', String(s.cmdK));
       paintCdn();
       paintHead();

@@ -3,7 +3,7 @@ import { mountUpdateNotice } from './update-notice';
 import { attachNavigationGlass } from './navigation-glass';
 import { loadSettings } from '../../shared/settings';
 import { BackgroundLayer } from '../bg/background';
-import { h, ICONS, guardTyping } from './dom';
+import { h, icon, ICONS, guardTyping } from './dom';
 import { createHeader, type Header, SITE_LINKS } from './header';
 import { createSettingsPanel, type SettingsPanel } from './settings-panel';
 import { attachGlass, filtersIn } from './liquid-glass';
@@ -74,6 +74,7 @@ export class PageShell {
     const exit = h('button', { class: 'ghost small', type: 'button', onclick: () => { sessionStorage.setItem('margin:off', '1'); location.reload(); } }, '本次回到 B 站原版');
     this.app = h('div', { class: 'app','data-glass':settings.glass },
       this.bg.el, this.head.el, this.main,
+      h('button', { type: 'button', class: 'page-back-top', 'aria-label': '返回顶部', onclick: () => this.app.scrollTo({ top: 0, behavior: this.settings.reduceMotion ? 'instant' : 'smooth' }) }, icon(ICONS.arrowUp)),
       h('footer', { class: 'foot tk-foot' }, exit, h('span', {}, '映间 MARGIN · 非 B 站官方')),
       this.panel.sheet.el, fav.el, later.el, hist.el, palette.el,
     );

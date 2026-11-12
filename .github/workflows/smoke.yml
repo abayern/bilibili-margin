@@ -194,7 +194,9 @@ jobs:
         env:
           SMOKE_OUT: smoke-artifacts/november-feedback
       - name: Categorized settings navigation and retained preferences
-        run: node tests/settings-page.mjs
+        run: |
+          node tests/settings-page.mjs
+          node tests/navigation-layout.mjs
         env:
           SMOKE_OUT: smoke-artifacts/settings-page
       - if: always()

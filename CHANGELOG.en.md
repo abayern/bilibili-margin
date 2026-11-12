@@ -4,6 +4,13 @@
 
 ## Unreleased
 
+## v0.6.50 · 2026-11-12
+
+- Add optional navigation labels, off by default, shared by home and watch pages with horizontal scrolling for narrow headers (#157).
+- Add classic/sidebar dynamic layouts, defaulting to classic. Reuse the existing UP strip in the left sidebar, move live cards to the right and return to the top on selection (#146).
+- Add back-to-top controls to shared takeover pages and use a simple filled selection in the sidebar.
+- Add loaded-extension settings, navigation and layout regression coverage.
+
 ## v0.6.49 · 2026-11-12
 
 - Add an opt-in Remember authorization switch for the App recommendation feed. Off by default, remembered credentials survive browser restarts for up to 30 days, bounded by Bilibili's expiry (#174).
